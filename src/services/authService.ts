@@ -57,4 +57,9 @@ export const authService = {
     );
     return response.data;
   },
+
+  // 6. Desvincular cuidador/paciente (DELETE /api/auth/vincular/{vinculoId}) - RN01
+  async desvincularFamiliar(vinculoId: number): Promise<void> {
+    await api.delete(`/vincular/${vinculoId}`);
+  },
 };

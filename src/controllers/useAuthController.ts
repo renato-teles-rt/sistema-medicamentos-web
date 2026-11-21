@@ -15,7 +15,7 @@ export function useAuthController() {
   const [erro, setErro] = useState<string | null>(null);
   const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
 
-  // Carrega automaticamente os vínculos sempre que o usuário entrar no painel
+  // RN03: Sincroniza os vínculos com o Back-end sempre que a sessão ativa muda
   useEffect(() => {
     if (usuario) {
       atualizarVinculos(usuario);
@@ -92,6 +92,27 @@ export function useAuthController() {
     }
   }
 
+  // RN01: Encerra vínculo ativo e recarrega a lista para liberar vaga no limite de 2
+  async function desvincular(vinculoId: number) {
+    if (!usuario) return;
+    setCarregando(true);
+    setErro(null);
+    setMensagemSucesso(null);
+
+    try {
+      await authService.desvincularFamiliar(vinculoId);
+      await atualizarVinculos(usuario);
+      setMensagemSucesso('Vínculo familiar encerrado com sucesso.');
+    } catch (err: any) {
+      setErro(
+        err?.response?.data?.erro || 'Não foi possível encerrar o vínculo.'
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  // RN02: Encerra a sessão apenas mediante ação explícita de Sair
   function sair() {
     localStorage.removeItem(STORAGE_KEY);
     setUsuario(null);
@@ -109,6 +130,7 @@ export function useAuthController() {
     entrar,
     recuperarConta,
     vincularPorCodigo,
+    desvincular,
     sair,
   };
 }

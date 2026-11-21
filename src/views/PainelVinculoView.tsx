@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Usuario, VinculoFamiliar } from '../models/Usuario';
 
+const LIMITE_MAXIMO_CUIDADORES = 2;
+
 interface PainelVinculoViewProps {
   usuario: Usuario;
   vinculos: VinculoFamiliar[];
@@ -8,6 +10,7 @@ interface PainelVinculoViewProps {
   erro: string | null;
   mensagemSucesso: string | null;
   onVincular: (codigo: string) => Promise<void>;
+  onDesvincular: (vinculoId: number) => Promise<void>;
   onSair: () => void;
 }
 
@@ -18,15 +21,28 @@ export function PainelVinculoView({
   erro,
   mensagemSucesso,
   onVincular,
+  onDesvincular,
   onSair,
 }: PainelVinculoViewProps) {
   const [codigoInput, setCodigoInput] = useState('');
+  const isPaciente = usuario.tipoPerfil === 'PACIENTE';
+  const limiteAtingido =
+    isPaciente && vinculos.length >= LIMITE_MAXIMO_CUIDADORES;
 
   async function handleVincular(e: React.FormEvent) {
     e.preventDefault();
     if (!codigoInput.trim()) return;
     await onVincular(codigoInput);
     setCodigoInput('');
+  }
+
+  async function handleDesvincular(vinculo: VinculoFamiliar) {
+    const alvo = isPaciente ? vinculo.cuidador.nome : vinculo.paciente.nome;
+    const confirmado = window.confirm(
+      `Deseja realmente remover o vínculo com ${alvo}?`
+    );
+    if (!confirmado) return;
+    await onDesvincular(vinculo.id);
   }
 
   return (
@@ -45,7 +61,7 @@ export function PainelVinculoView({
           <div>
             <h1>Olá, {usuario.nome}</h1>
             <span className="badge">
-              Perfil: {usuario.tipoPerfil === 'PACIENTE' ? 'Paciente 50+' : 'Cuidador / Familiar'}
+              Perfil: {isPaciente ? 'Paciente 50+' : 'Cuidador / Familiar'}
             </span>
           </div>
 
@@ -55,10 +71,11 @@ export function PainelVinculoView({
         </div>
 
         {/* Se for PACIENTE, exibe o Código de 6 dígitos */}
-        {usuario.tipoPerfil === 'PACIENTE' && (
+        {isPaciente && (
           <div className="codigo-destaque">
             <p style={{ fontWeight: 600 }}>
-              Seu Código de Vínculo Familiar (compartilhe com seu cuidador):
+              Seu Código de Vínculo Familiar (compartilhe com seu cuidador — até{' '}
+              {LIMITE_MAXIMO_CUIDADORES} cuidadores ativos):
             </p>
             <span className="codigo-letras">{usuario.codigoVinculo}</span>
           </div>
@@ -66,7 +83,7 @@ export function PainelVinculoView({
       </div>
 
       {/* Se for CUIDADOR, exibe o formulário para digitar o código */}
-      {usuario.tipoPerfil === 'CUIDADOR' && (
+      {!isPaciente && (
         <div className="card">
           <h2>🔗 Conectar a um Paciente</h2>
           <p className="subtitulo">
@@ -100,21 +117,51 @@ export function PainelVinculoView({
 
       {/* Lista de Vínculos Ativos */}
       <div className="card">
-        <h2>
-          👥{' '}
-          {usuario.tipoPerfil === 'CUIDADOR'
-            ? 'Pacientes Acompanhados por Você'
-            : 'Cuidadores Conectados ao Seu Perfil'}
-        </h2>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <h2 style={{ margin: 0 }}>
+            👥{' '}
+            {isPaciente
+              ? 'Cuidadores Conectados ao Seu Perfil'
+              : 'Pacientes Acompanhados por Você'}
+          </h2>
+
+          {isPaciente && (
+            <span className="badge">
+              {vinculos.length} de {LIMITE_MAXIMO_CUIDADORES} ativos
+            </span>
+          )}
+        </div>
+
+        {isPaciente && (
+          <p className="subtitulo" style={{ marginTop: '8px' }}>
+            {limiteAtingido
+              ? `Limite máximo de ${LIMITE_MAXIMO_CUIDADORES} cuidadores ativos atingido. Desvincule um para liberar vaga.`
+              : `Você pode ter de 0 até ${LIMITE_MAXIMO_CUIDADORES} cuidadores ativos simultaneamente.`}
+          </p>
+        )}
+
+        {isPaciente && erro && <div className="alerta-erro">{erro}</div>}
+        {isPaciente && mensagemSucesso && (
+          <div className="alerta-sucesso">{mensagemSucesso}</div>
+        )}
 
         {vinculos.length === 0 ? (
           <p style={{ color: '#486581', marginTop: '10px' }}>
-            Nenhum vínculo familiar ativo no momento.
+            {isPaciente
+              ? `Nenhum cuidador vinculado no momento (0 de ${LIMITE_MAXIMO_CUIDADORES}).`
+              : 'Nenhum vínculo familiar ativo no momento.'}
           </p>
         ) : (
           vinculos.map((v) => {
-            const pessoa =
-              usuario.tipoPerfil === 'CUIDADOR' ? v.paciente : v.cuidador;
+            const pessoa = isPaciente ? v.cuidador : v.paciente;
             return (
               <div key={v.id} className="item-vinculo">
                 <div>
@@ -125,7 +172,18 @@ export function PainelVinculoView({
                     {pessoa.email}
                   </span>
                 </div>
-                <span className="badge">Vínculo Ativo</span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span className="badge">Vínculo Ativo</span>
+                  <button
+                    type="button"
+                    className="btn-secundario"
+                    disabled={carregando}
+                    onClick={() => handleDesvincular(v)}
+                  >
+                    <span>Desvincular</span>
+                  </button>
+                </div>
               </div>
             );
           })

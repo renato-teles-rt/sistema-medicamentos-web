@@ -12,6 +12,7 @@ export function App() {
     entrar,
     recuperarConta,
     vincularPorCodigo,
+    desvincular,
     sair,
   } = useAuthController();
 
@@ -34,6 +35,7 @@ export function App() {
       erro={erro}
       mensagemSucesso={mensagemSucesso}
       onVincular={vincularPorCodigo}
+      onDesvincular={desvincular}
       onSair={sair}
     />
   );
